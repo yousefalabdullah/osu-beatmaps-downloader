@@ -20,14 +20,14 @@ The script runs on standard **Python 3** and requires the `requests` library to 
 ### Installing Dependencies
 
 * **On Arch Linux (or Arch-based distros):** You can install the required package directly through your system package manager:
-  
+  ```bash
   sudo pacman -S python-requests
-  
+  ```
 
 * **On Windows or other Linux distros:** You can run it inside a virtual environment and install it via `pip`:
-  
+  ```bash
   pip install requests
-  
+  ```
   *(If you encounter any issues, feel free to check online guides, tutorials, or consult an AI assistant).*
 
 ---
@@ -40,24 +40,23 @@ Create a file named `links.txt` in the exact same directory as the script. Place
 *(Note: The default file contains 5 example maps so you can see how it works. You can delete those links and paste your own).*
 
 **Supported Formats for `links.txt`:**
-
+```text
 [https://osu.ppy.sh/beatmapsets/1956659#mania/4055755](https://osu.ppy.sh/beatmapsets/1956659#mania/4055755)
 [https://osu.ppy.sh/beatmapsets/2341595](https://osu.ppy.sh/beatmapsets/2341595)
 [https://osu.ppy.sh/s/934974](https://osu.ppy.sh/s/934974)
 1347618
-
-
+```
 💡 *Tip: You can mix multiple formats, but using the second format (`https://osu.ppy.sh/beatmapsets/2341595`) is highly recommended to avoid any formatting issues.*
 
 ### 2. Run the Script
 Open your terminal or Command Prompt in the script's directory and execute:
-
+```bash
 python osu_downloader.py
-
+```
 Alternatively, if you cannot open the terminal directly inside that directory, use the absolute path:
-
+```cmd
 python "C:/path-to-your-directory/osu_downloader.py"
-
+```
 
 ### 3. Import to osu!
 Once completed, all your downloaded maps will be stored inside a folder named `downloaded_maps`.
