@@ -2,211 +2,237 @@ import os
 import re
 import time
 import sys
+import threading
 import urllib.request
 import urllib.error
 
-REQ_MODE = False
-try:
-    import requests
-    REQ_MODE = True
-except ImportError:
-    pass
+COLORS = {
+    "ok": "\033[92mOK\033[0m",
+    "failed": "\033[91mFAILED\033[0m",
+    "cached": "\033[94mCACHED (Skipped)\033[0m",
+    "invalid": "\033[93mInvalid URL format:\033[0m",
+    "start": "\033[96mFound {total} links. Starting downloads...\033[0m",
+    "reason": "\033[93m(Reason: {reason})\033[0m",
+    "info": "\033[95m",
+    "menu": "\033[92m",
+    "reset": "\033[0m"
+}
 
-OK, FAIL, SKIP = "\033[92mOK\033[0m", "\033[91mFAILED\033[0m", "\033[94mCACHED\033[0m"
-WARN, INFO, RESET = "\033[93m", "\033[95m", "\033[0m"
-
-saved_tty = None
-if os.name != 'nt':
-    import tty, termios, select
-    if sys.stdin.isatty():
-        saved_tty = termios.tcgetattr(sys.stdin.fileno())
-else:
+if os.name == 'nt':
     import msvcrt
-    try: os.system('color')
-    except: pass
+    os.system('')
+else:
+    import tty
+    import termios
+    import select
+
+# Dynamically resolve paths relative to the script's actual location
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+LINKS_FILE = os.path.join(SCRIPT_DIR, "links.txt")
+OUTPUT_DIR = os.path.join(SCRIPT_DIR, "downloaded_maps")
+
+MAX_RETRIES = 3
+RETRY_DELAY = 1
 
 is_paused = False
 is_cancelled = False
-exit_now = False
-
-ID_PATTERN = re.compile(r"(?:beatmapsets/|/s/|/download/)(\d+)|^(\d+)$")
-UA = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64)"}
+exit_program = False
 
 
-def print_banner():
-    print(f"{WARN}======================================================={RESET}\r")
-    print(f"{WARN}      osu! Bulk Map Downloader - Quick Start Guide     {RESET}\r")
-    print(f"{WARN}======================================================={RESET}\r")
-    print("  [P] Pause/Resume : Pause current download instantly.\r\n"
-          "  [C] Cancel Map   : Skip current map and delete temp file.\r\n"
-          "  [Q] Quit Script  : Exit safely without corrupting files.\r")
-    print(f"{WARN}======================================================={RESET}\r\n")
+def print_welcome_menu():
+    border = "=" * 55
+    print(f"{COLORS['menu']}{border}")
+    print(f"{COLORS['menu']}      osu! Bulk Map Downloader - Quick Start Guide")
+    print(f"{COLORS['menu']}{border}")
+    print("  [P] Pause/Resume : Pause the current download instantly.")
+    print("                     Press 'P' again to resume.")
+    print("  [C] Cancel Map   : Stop downloading the current map, delete")
+    print("                     the partial file, and skip to the next.")
+    print("  [Q] Quit Script  : Safely terminate the downloader without")
+    print("                     leaving corrupted or half-downloaded files.")
+    print(f"{COLORS['menu']}{border}\n")
 
 
-def check_io():
-    global is_paused, is_cancelled, exit_now
-
+def get_ch():
     if os.name == 'nt':
         try:
-            if not msvcrt.kbhit(): return
-            ch = msvcrt.getch()
-            if ch in (b'\x00', b'\xe0'):
-                msvcrt.getch()
-                return
-            ch = ch.decode('utf-8', errors='ignore').lower()
-        except: return
+            if msvcrt.kbhit():
+                return msvcrt.getch().decode('utf-8', errors='ignore').lower()
+        except:
+            return None
     else:
-        if not (sys.stdin and sys.stdin.isatty()): return
-        try:
-            r, _, _ = select.select([sys.stdin], [], [], 0.001)
-            if not r: return
-            ch = sys.stdin.read(1).lower()
-        except: return
-
-    if ch == 'p':
-        is_paused = not is_paused
-        print(f"\r\n{INFO}==> PAUSED. Press 'P' to resume...\r" if is_paused else f"\r\n{INFO}==> RESUMED.\r")
-    elif ch == 'c':
-        is_cancelled = True
-        print(f"\r\n{INFO}==> Cancelling current download...\r")
-    elif ch == 'q':
-        exit_now = True
-        is_cancelled = True
-        print(f"\r\n{INFO}==> Exiting safely...\r")
+        if sys.stdin.isatty():
+            try:
+                rlist, _, _ = select.select([sys.stdin], [], [], 0.05)
+                if rlist:
+                    fd = sys.stdin.fileno()
+                    old_settings = termios.tcgetattr(fd)
+                    try:
+                        tty.setraw(fd)
+                        ch = sys.stdin.read(1)
+                    finally:
+                        termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+                    return ch.lower()
+            except:
+                return None
+    return None
 
 
-def req_stream(session, url, tmp):
+def listen_keyboard():
+    global is_paused, is_cancelled, exit_program
+    while not exit_program:
+        ch = get_ch()
+        if ch == 'p':
+            is_paused = not is_paused
+            print(f"\r\n{COLORS['info']}==> PAUSED. Press 'P' to resume...\r" if is_paused else f"\r\n{COLORS['info']}==> RESUMED.\r")
+        elif ch == 'c':
+            is_cancelled = True
+            print(f"\r\n{COLORS['info']}==> Cancelling current download...\r")
+        elif ch == 'q':
+            exit_program = True
+            is_cancelled = True
+            print(f"\r\n{COLORS['info']}==> Exiting safely...\r")
+        time.sleep(0.05)
+
+
+def get_map_id(url):
+    match = re.search(r"(?:beatmapsets/|/s/|/download/)(\d+)|^(\d+)$", url.strip())
+    if not match: 
+        return None
+    return match.group(1) or match.group(2)
+
+
+def download_set(opener, map_id, file_path):
     global is_paused, is_cancelled
-    with session.get(url, headers=UA, timeout=8, stream=True) as res:
-        if res.status_code != 200: return False, f"HTTP {res.status_code}"
-        with open(tmp, "wb") as f:
-            for chunk in res.iter_content(chunk_size=1024):
-                check_io()
-                while is_paused and not is_cancelled:
-                    check_io()
-                    time.sleep(0.02)
-                if is_cancelled: return False, "Cancelled"
-                if chunk: f.write(chunk)
-    return True, "OK"
-
-
-def url_stream(opener, url, tmp):
-    global is_paused, is_cancelled
-    req = urllib.request.Request(url, headers=UA)
-    with opener.open(req, timeout=10) as res:
-        sock = res.fp.raw._sock if hasattr(res, 'fp') and hasattr(res.fp, 'raw') else None
-        if sock: sock.settimeout(5.0)
-        with open(tmp, "wb") as f:
-            while True:
-                check_io()
-                while is_paused and not is_cancelled:
-                    check_io()
-                    time.sleep(0.02)
-                if is_cancelled: return False, "Cancelled"
-                try: chunk = res.read(1024)
-                except: raise TimeoutError("Stalled")
-                if not chunk: break
-                f.write(chunk)
-    return True, "OK"
-
-
-def exec_dl(backend, map_id, path):
-    global is_paused, is_cancelled
+    
     mirrors = [
         f"https://api.nerinyan.moe/d/{map_id}",
-        f"https://txy1.sayobot.cn/beatmaps/download/full/{map_id}"
+        f"https://txy1.sayobot.cn/beatmaps/download/full/{map_id}",
     ]
-    tmp = path + ".part"
-    err = "Unknown error"
+    
+    temp_path = file_path + ".part"
+    error_reason = "Unknown error"
 
     for url in mirrors:
         if is_cancelled: break
-        for r in range(3):
+        
+        for attempt in range(1, MAX_RETRIES + 1):
             if is_cancelled: break
-            while is_paused and not is_cancelled:
-                check_io()
-                time.sleep(0.02)
-            if is_cancelled: break
-
+            
             try:
-                success, msg = req_stream(backend, url, tmp) if REQ_MODE else url_stream(backend, url, tmp)
-                if not success:
-                    err = msg
-                    if "404" in msg: break
-                    continue
+                req = urllib.request.Request(
+                    url, 
+                    headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36"}
+                )
+                
+                with opener.open(req, timeout=20) as res:
+                    with open(temp_path, "wb") as f:
+                        while True:
+                            while is_paused and not is_cancelled:
+                                time.sleep(0.2)
+                            
+                            if is_cancelled:
+                                f.close()
+                                if os.path.exists(temp_path):
+                                    os.remove(temp_path)
+                                return False, "Cancelled by user"
 
-                if os.path.exists(tmp) and os.path.getsize(tmp) < 2048:
-                    err = "Invalid File"
-                    os.remove(tmp)
+                            chunk = res.read(65536)
+                            if not chunk:
+                                break
+                            f.write(chunk)
+                
+                if os.path.exists(temp_path) and os.path.getsize(temp_path) < 2048:
+                    error_reason = "Invalid Map / Not Found"
+                    os.remove(temp_path)
                     break
 
-                if os.path.exists(path): os.remove(path)
-                os.replace(tmp, path)
+                if os.path.exists(file_path):
+                    os.remove(file_path)
+                os.replace(temp_path, file_path)
                 return True, "OK"
 
+            except urllib.error.HTTPError as e:
+                error_reason = f"HTTP {e.code}"
+                if e.code == 404:
+                    error_reason = "404 Not Found"
+                    break
             except Exception as e:
-                err = "Stalled" if "stalled" in str(e).lower() else type(e).__name__
-                if os.path.exists(tmp):
-                    try: os.remove(tmp)
+                error_reason = type(e).__name__
+                if os.path.exists(temp_path):
+                    try: os.remove(temp_path)
                     except: pass
-                if r < 2 and not is_cancelled:
-                    time.sleep(1)
+                
+                if attempt < MAX_RETRIES and not is_cancelled:
+                    time.sleep(RETRY_DELAY)
                     continue
-                else: break
-    return False, "Cancelled" if is_cancelled else f"Failed ({err})"
+                else:
+                    break 
+
+    return False, "Cancelled by user" if is_cancelled else f"Failed on all mirrors ({error_reason})"
 
 
 def main():
-    global is_cancelled, exit_now
-    if os.name != 'nt' and saved_tty and sys.stdin.isatty():
-        tty.setcbreak(sys.stdin.fileno())
+    global is_cancelled, exit_program
+    
+    print_welcome_menu()
 
-    try:
-        print_banner()
-        if not os.path.exists("links.txt"):
-            if os.name != 'nt' and saved_tty and sys.stdin.isatty():
-                termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, saved_tty)
-            print("Error: links.txt missing.\r")
-            return
+    if not os.path.exists(LINKS_FILE):
+        print(f"Error: 'links.txt' not found in the script directory.\r")
+        print(f"Expected path: {LINKS_FILE}\r")
+        print("\nPress ENTER to close...")
+        input()
+        return
 
-        os.makedirs("downloaded_maps", exist_ok=True)
-        with open("links.txt", "r", encoding="utf-8") as f:
-            urls = list(dict.fromkeys(ln.strip() for ln in f if ln.strip()))
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-        total = len(urls)
-        print(f"Found {total} links. Running via {'requests' if REQ_MODE else 'urllib'}...\r\n")
-        backend = requests.Session() if REQ_MODE else urllib.request.build_opener(urllib.request.HTTPCookieProcessor())
+    with open(LINKS_FILE, "r", encoding="utf-8") as f:
+        urls = list(dict.fromkeys(line.strip() for line in f if line.strip()))
 
-        for idx, url in enumerate(urls, 1):
-            if exit_now: break
-            is_cancelled = False
+    total = len(urls)
+    
+    if total == 0:
+        print(f"Notice: 'links.txt' is empty. Nothing to download.\r")
+        print("\nPress ENTER to close...")
+        input()
+        return
 
-            m = ID_PATTERN.search(url.strip())
-            map_id = (m.group(1) or m.group(2)) if m else None
-            if not map_id:
-                print(f"[{idx}/{total}] {WARN}Invalid:{RESET} {url}\r")
-                continue
+    print(COLORS['start'].format(total=total) + "\r\n")
 
-            file_path = os.path.join("downloaded_maps", f"{map_id}.osz")
-            if os.path.exists(file_path):
-                print(f"[{idx}/{total}] Map {map_id} -> {SKIP}\r")
-                continue
+    threading.Thread(target=listen_keyboard, daemon=True).start()
+    
+    opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor())
 
-            print(f"[{idx}/{total}] Downloading {map_id}...\r")
-            success, reason = exec_dl(backend, map_id, file_path)
-            print(f"-> Status: {OK}\r\n" if success else f"-> Status: {FAIL} ({reason})\r\n")
-            if not success and exit_now: break
+    for idx, url in enumerate(urls, 1):
+        if exit_program:
+            break
 
-        if REQ_MODE: backend.close()
-        print("Done.\r")
+        is_cancelled = False
+        map_id = get_map_id(url)
+        
+        if not map_id:
+            print(f"[{idx}/{total}] {COLORS['invalid']} {url}\r")
+            continue
 
-    except Exception as e:
-        if os.name != 'nt' and saved_tty and sys.stdin.isatty():
-            termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, saved_tty)
-        print(f"\nRuntime Error: {e}\r")
-    finally:
-        if os.name != 'nt' and saved_tty and sys.stdin.isatty():
-            termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, saved_tty)
+        file_path = os.path.join(OUTPUT_DIR, f"{map_id}.osz")
+
+        if os.path.exists(file_path):
+            print(f"[{idx}/{total}] Map {map_id} -> {COLORS['cached']}\r")
+            continue
+
+        print(f"[{idx}/{total}] Fetching map {map_id}... ", end="", flush=True)
+        success, reason = download_set(opener, map_id, file_path)
+        
+        if success:
+            print(COLORS['ok'] + "\r")
+            time.sleep(0.2)
+        else:
+            print(f"{COLORS['failed']} -> {COLORS['reason'].format(reason=reason)}\r")
+            if exit_program:
+                break
+
+    print("\nDone. Press ENTER to exit...\r")
+    input()
 
 
 if __name__ == "__main__":
