@@ -81,4 +81,3 @@ This script does not scrape the official osu! website. Instead, it utilizes infr
 ## ✍️ Authorship
 
 This utility was built, refactored, and optimized using AI (vibe coded) by **Yousef Al-Abdullah**.  
-🌐 **osu! Profile:** [Yousef Al-Abdullah](https://osu.ppy.sh/users/28499404/)
