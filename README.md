@@ -16,6 +16,7 @@ A lightweight Python script designed to batch download **osu! beatmapsets** via 
 ## 🛠️ Requirements
 
 The script runs on standard **Python 3** and requires the `requests` library to handle file streaming.
+So naturally you first need to install [Python3](https://www.python.org/downloads/) for your operating system.
 
 ### Installing Dependencies
 
