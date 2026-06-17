@@ -26,7 +26,11 @@ The script runs on standard **Python 3** and requires the `requests` library to 
 
 * **On Windows or other Linux distros:** You can run it inside a virtual environment and install it via `pip`:
   ```bash
-  pip install requests
+  py -m pip install requests
+  ```
+  or:
+    ```bash
+  python -m pip install requests
   ```
   *(If you encounter any issues, feel free to check online guides, tutorials, or consult an AI assistant).*
 
