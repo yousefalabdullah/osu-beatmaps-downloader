@@ -45,9 +45,9 @@ Create a file named `links.txt` in the exact same directory as the script. Place
 
 **Supported Formats for `links.txt`:**
 ```text
-[https://osu.ppy.sh/beatmapsets/1956659#mania/4055755](https://osu.ppy.sh/beatmapsets/1956659#mania/4055755)
-[https://osu.ppy.sh/beatmapsets/2341595](https://osu.ppy.sh/beatmapsets/2341595)
-[https://osu.ppy.sh/s/934974](https://osu.ppy.sh/s/934974)
+https://osu.ppy.sh/beatmapsets/1956659#mania/4055755
+https://osu.ppy.sh/beatmapsets/2341595
+https://osu.ppy.sh/s/934974
 1347618
 ```
 💡 *Tip: You can mix multiple formats, but using the second format (`https://osu.ppy.sh/beatmapsets/2341595`) is highly recommended to avoid any formatting issues.*
