@@ -24,6 +24,14 @@ except ModuleNotFoundError:
 
 from concurrent.futures import ThreadPoolExecutor
 
+CONCURRENT_LIMIT = 4
+RETRIES = 2
+DELAY = 1
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+FILE_PATH = os.path.join(BASE_DIR, "links.txt")
+SAVE_DIR = os.path.join(BASE_DIR, "downloaded_maps")
+
 THEME = {
     "ok": "\033[92mOK\033[0m",
     "failed": "\033[91mFAILED\033[0m",
@@ -44,20 +52,12 @@ else:
     import termios
     import select
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-FILE_PATH = os.path.join(BASE_DIR, "links.txt")
-SAVE_DIR = os.path.join(BASE_DIR, "downloaded_maps")
-
-CONCURRENT_LIMIT = 4
-RETRIES = 2
-DELAY = 1
-
 paused = False
 stop_flag = False
 force_refresh = False
 done_count = 0
-state_lock = threading.Lock()
 
+state_lock = threading.Lock()
 logs = []
 slot_view = {i: "Idle..." for i in range(CONCURRENT_LIMIT)}
 
@@ -82,7 +82,8 @@ def clear_keys():
         try:
             while select.select([sys.stdin], [], [], 0.0)[0]:
                 sys.stdin.read(1)
-        except: pass
+        except:
+            pass
 
 
 def read_key():
@@ -90,21 +91,27 @@ def read_key():
         try:
             if msvcrt.kbhit():
                 return msvcrt.getch().decode('utf-8', errors='ignore').lower()
-        except: return None
+        except:
+            return None
     else:
         if sys.stdin.isatty():
             fd = sys.stdin.fileno()
-            try: old = termios.tcgetattr(fd)
-            except: return None
+            try:
+                old = termios.tcgetattr(fd)
+            except:
+                return None
             try:
                 tty.setcbreak(fd)
                 r, _, _ = select.select([sys.stdin], [], [], 0.05)
                 if r:
                     return sys.stdin.read(1).lower()
-            except: return None
+            except:
+                return None
             finally:
-                try: termios.tcsetattr(fd, termios.TCSADRAIN, old)
-                except: pass
+                try:
+                    termios.tcsetattr(fd, termios.TCSADRAIN, old)
+                except:
+                    pass
     return None
 
 
@@ -125,22 +132,27 @@ def input_listener():
 
 def parse_id(link):
     m = re.search(r"(?:beatmapsets/|/s/|/download/)(\d+)|^(\d+)$", link.strip())
-    if not m: return None
+    if not m:
+        return None
     return m.group(1) or m.group(2)
 
 
 def run_download(session, map_id, dest, slot_idx, current_idx, total):
     global paused, stop_flag
-    if stop_flag: return False, "Interrupted"
-    if os.path.exists(dest): return True, "CACHED"
+    
+    if stop_flag:
+        return False, "Interrupted"
+    if os.path.exists(dest):
+        return True, "CACHED"
 
     endpoints = [
         f"https://api.nerinyan.moe/d/{map_id}",
-        f"https://txy1.sayobot.cn/beatmaps/download/full/{map_id}",
+        f"https://txy1.sayobot.cn/beatmaps/download/full/{map_id}"
     ]
-
+    
     part_file = dest + ".part"
     fail_msg = "Error"
+    
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
         "Accept-Encoding": "identity",
@@ -148,14 +160,18 @@ def run_download(session, map_id, dest, slot_idx, current_idx, total):
     }
 
     for link in endpoints:
-        if stop_flag: break
+        if stop_flag:
+            break
+            
         for run in range(1, RETRIES + 1):
-            if stop_flag: break
+            if stop_flag:
+                break
+                
             response = None
             try:
                 response = session.get(link, headers=headers, timeout=7, stream=True)
                 response.raise_for_status()
-
+                
                 size = response.headers.get('content-length')
                 size = int(size) if size else None
                 got = 0
@@ -166,23 +182,25 @@ def run_download(session, map_id, dest, slot_idx, current_idx, total):
                         while paused and not stop_flag:
                             time.sleep(0.2)
                             t0 = time.time() - (got / (rate if 'rate' in locals() and rate > 0 else 1))
-
+                        
                         if stop_flag:
                             f.close()
-                            if os.path.exists(part_file): os.remove(part_file)
-                            if response: response.close()
+                            if os.path.exists(part_file):
+                                os.remove(part_file)
+                            if response:
+                                response.close()
                             return False, "Interrupted"
 
                         if chunk:
                             f.write(chunk)
                             got += len(chunk)
-
+                        
                         dt = time.time() - t0
                         if dt > 0:
                             rate = got / dt
                             mb_s = rate / 1048576
                             mb_got = got / 1048576
-
+                            
                             if size:
                                 mb_total = size / 1048576
                                 mb_remaining = mb_total - mb_got
@@ -195,18 +213,23 @@ def run_download(session, map_id, dest, slot_idx, current_idx, total):
 
                 if os.path.exists(part_file) and os.path.getsize(part_file) < 2048:
                     fail_msg = "Empty File"
-                    if os.path.exists(part_file): os.remove(part_file)
-                    if response: response.close()
-                    break
+                    if os.path.exists(part_file):
+                        os.remove(part_file)
+                    if response:
+                        response.close()
+                    break 
 
-                if os.path.exists(dest): os.remove(dest)
+                if os.path.exists(dest):
+                    os.remove(dest)
+                    
                 os.replace(part_file, dest)
-                if response: response.close()
+                if response:
+                    response.close()
                 return True, "OK"
 
             except requests.exceptions.HTTPError as e:
                 fail_msg = f"HTTP {response.status_code}" if response else "HTTP Error"
-                if response and response.status_code == 404:
+                if response and response.status_code == 404: 
                     response.close()
                     break
             except Exception as e:
@@ -215,23 +238,29 @@ def run_download(session, map_id, dest, slot_idx, current_idx, total):
                     fail_msg = "Timeout"
                 elif "connection" in fail_msg.lower():
                     fail_msg = "ConnError"
-
+                
                 if os.path.exists(part_file):
-                    try: os.remove(part_file)
-                    except: pass
+                    try:
+                        os.remove(part_file)
+                    except:
+                        pass
                 if response:
-                    try: response.close()
-                    except: pass
+                    try:
+                        response.close()
+                    except:
+                        pass
                 if run < RETRIES and not stop_flag:
                     time.sleep(DELAY)
                     continue
-                else: break
+                else:
+                    break
 
     return False, fail_msg
 
 
 def ui_loop(total):
     global stop_flag, done_count, paused, force_refresh
+    
     sys.stdout.write("\033[2J\033[H")
     sys.stdout.flush()
 
@@ -244,7 +273,7 @@ def ui_loop(total):
 
             frame = []
             frame.append(draw_header())
-
+            
             if paused:
                 frame.append(f"{THEME['info']}==== DOWNLOADS PAUSED. PRESS 'P' TO RESUME ===={THEME['reset']}\n")
             else:
@@ -255,13 +284,13 @@ def ui_loop(total):
                 for row in logs[-8:]:
                     frame.append(row)
             frame.append("-----------\n")
-
+            
             frame.append("--- Channels ---")
             with state_lock:
                 for i in range(CONCURRENT_LIMIT):
                     frame.append(slot_view[i])
             frame.append("----------------")
-
+            
             frame.append(f"\n[Progress: {done_count}/{total}]")
 
             out_str = "\033[H" + "\n".join(f"\033[K{line}" for line in frame)
@@ -274,7 +303,7 @@ def ui_loop(total):
 
 def main():
     global done_count, stop_flag
-
+    
     if not os.path.exists(FILE_PATH):
         sys.stdout.write("\033[2J\033[H")
         print(draw_header())
@@ -286,7 +315,7 @@ def main():
 
     with open(FILE_PATH, "r", encoding="utf-8") as f:
         lines = [line.strip() for line in f if line.strip()]
-
+    
     seen = set()
     cleaned_urls = []
     for u in lines:
@@ -308,18 +337,19 @@ def main():
             logs.append(f"{THEME['invalid']} {u}")
 
     total_jobs = len(job_list) + done_count
-
+    
     if len(job_list) == 0:
         sys.stdout.write("\033[2J\033[H")
         print(draw_header())
         print("--- Log Summary ---")
-        for row in logs: print(row)
+        for row in logs:
+            print(row)
         input(f"\nAll files cached. Press Enter to exit...")
         return
 
     threading.Thread(target=input_listener, daemon=True).start()
     threading.Thread(target=ui_loop, args=(total_jobs,), daemon=True).start()
-
+    
     session = requests.Session()
     adapter = requests.adapters.HTTPAdapter(pool_connections=CONCURRENT_LIMIT, pool_maxsize=CONCURRENT_LIMIT)
     session.mount('http://', adapter)
@@ -330,7 +360,8 @@ def main():
 
     with ThreadPoolExecutor(max_workers=CONCURRENT_LIMIT) as pool:
         for idx, (mid, path) in enumerate(job_list, done_count + 1):
-            if stop_flag: break
+            if stop_flag:
+                break
 
             while len(pool_slots) == 0 and not stop_flag:
                 time.sleep(0.04)
@@ -353,14 +384,16 @@ def main():
                                     logs.append(f"[{done_count}/{total_jobs}] Map {current_name} -> {THEME['failed']} {THEME['reason'].format(reason=msg)}")
                                 else:
                                     done_count -= 1
-                    except: pass
+                    except:
+                        pass
 
-            if stop_flag: break
-
+            if stop_flag:
+                break
+            
             free_slot = pool_slots.pop(0)
             with state_lock:
                 slot_view[free_slot] = f"Slot {free_slot+1} -> [{idx}/{total_jobs}] Connecting {mid}..."
-
+            
             future = pool.submit(run_download, session, mid, path, free_slot, idx, total_jobs)
             running_tasks[future] = free_slot
 
@@ -383,17 +416,21 @@ def main():
                                 logs.append(f"[{done_count}/{total_jobs}] Map {current_name} -> {THEME['failed']} {THEME['reason'].format(reason=msg)}")
                             else:
                                 done_count -= 1
-                except: pass
-                with state_lock: slot_view[s] = "Idle..."
+                except:
+                    pass
+                with state_lock:
+                    slot_view[s] = "Idle..."
             time.sleep(0.04)
 
     stop_flag = True
     session.close()
     time.sleep(0.2)
+    
     sys.stdout.write("\033[2J\033[H")
     print(draw_header())
     print("--- Session Summary ---")
-    for row in logs: print(row)
+    for row in logs:
+        print(row)
     clear_keys()
     input(f"\nFinished! Total processed: {done_count}. Press Enter to exit...")
 
