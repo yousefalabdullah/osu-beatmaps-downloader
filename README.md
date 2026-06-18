@@ -11,7 +11,7 @@ A lightweight Python script designed to batch download **osu! beatmapsets** in b
 * **Smart Duplication Checks:** Automatically skips maps that have already been downloaded to save time and bandwidth.
 * **URL Flexibility:** Accepts full osu! beatmapset links, legacy `/s/` URLs, or direct numeric IDs.
 * **Support:** It supports all osu! different mods.
-* **Cross-Platform:** It works on all operating systems that support Python3.
+* **Cross-Platform:** It works on all operating systems that support Python 3.
 
 ---
 
