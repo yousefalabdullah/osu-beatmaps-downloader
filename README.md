@@ -1,6 +1,6 @@
 # Simple osu! Bulk Downloader
 
-A lightweight Python script designed to batch download **osu! beatmapsets** via community-maintained mirrors. It requires no official API keys, tokens, or credentials.
+A lightweight Python script designed to batch download **osu! beatmapsets** in bulk via community-maintained mirrors. It requires no official API keys, tokens, or credentials.
 
 ---
 
@@ -15,50 +15,32 @@ A lightweight Python script designed to batch download **osu! beatmapsets** via 
 
 ## 🛠️ Requirements
 
-The script runs on standard **Python 3** and requires the `requests` library to handle file streaming.
+The script runs on standard **Python 3**.
 So naturally you first need to install [Python3](https://www.python.org/downloads/) for your operating system.
-
-### Installing Dependencies
-
-* **On Arch Linux (or Arch-based distros):** You can install the required package directly through your system package manager:
-  ```bash
-  sudo pacman -S python-requests
-  ```
-
-* **On Windows or other Linux distros:** You can run it inside a virtual environment and install it via `pip`:
-  ```bash
-  py -m pip install requests
-  ```
-  or:
-    ```bash
-  python -m pip install requests
-  ```
-  *(If you encounter any issues, feel free to check online guides, tutorials, or consult an AI assistant).*
-
----
 
 ## 📖 How to Use
 
-### 1. Prepare Your Links File
-Create a file named `links.txt` in the exact same directory as the script. Place your osu! beatmap links inside, keeping **one link per line**. 
+### 1. Prepare Your beatmaps list
+Place your osu! beatmap links inside a file called `links.txt` inside the same directory as the script, keeping **one beatmap link per line**. 
 
 *(Note: The default file contains 5 example maps so you can see how it works. You can delete those links and paste your own).*
 
-**Supported Formats for `links.txt`:**
+**supported beatmnaps links formats inside `links.txt`:**
 ```text
 https://osu.ppy.sh/beatmapsets/1956659#mania/4055755
 https://osu.ppy.sh/beatmapsets/2341595
 https://osu.ppy.sh/s/934974
 1347618
 ```
-💡 *Tip: You can mix multiple formats, but using the second format (`https://osu.ppy.sh/beatmapsets/2341595`) is highly recommended to avoid any formatting issues.*
+💡 *Tip: You can mix multiple formats, but using the second format (`https://osu.ppy.sh/beatmapsets/2341595`) for all of the beatmaps is highly recommended to avoid any formatting issues.*
 
 ### 2. Run the Script
+If you are on windows you can just double click it after you put your beatmaps list. if you are not on windows tho or it didn't work, you can use the alternative method:
 Open your terminal or Command Prompt in the script's directory and execute:
 ```bash
 python osu_downloader.py
 ```
-Alternatively, if you cannot open the terminal directly inside that directory, use the absolute path:
+Alternatively, if you cannot open the terminal directly inside that directory, use the full directory:
 ```cmd
 python "C:/path-to-your-directory/osu_downloader.py"
 ```
@@ -68,7 +50,7 @@ Once completed, all your downloaded maps will be stored inside a folder named `d
 * Open **osu!**.
 * Select all the downloaded `.osz` files.
 * **Drag-and-drop** them directly into the game window to extract them all at once.
-*(Alternatively, you can open them together, run them one by one, or move them directly into your game's `Songs` or beatmaps directory).*
+*(Alternatively, you can open them together, run them one by one, or move them directly into your game's `Songs` or beatmaps directory, just import them in your preferred way!).*
 
 ---
 
