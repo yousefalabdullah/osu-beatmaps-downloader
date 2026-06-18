@@ -4,6 +4,7 @@ import time
 import sys
 import threading
 import subprocess
+import importlib
 
 try:
     import requests
@@ -11,6 +12,7 @@ except ModuleNotFoundError:
     print("Required library 'requests' is missing. Installing it now...")
     try:
         subprocess.check_call([sys.executable, "-m", "pip", "install", "requests"])
+        importlib.invalidate_caches()
         import requests
         print("Installation successful! Starting script...\n")
         time.sleep(1)
@@ -36,7 +38,7 @@ THEME = {
 
 if os.name == 'nt':
     import msvcrt
-    os.system('')  
+    os.system('')
 else:
     import tty
     import termios
@@ -46,7 +48,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FILE_PATH = os.path.join(BASE_DIR, "links.txt")
 SAVE_DIR = os.path.join(BASE_DIR, "downloaded_maps")
 
-CONCURRENT_LIMIT = 4  
+CONCURRENT_LIMIT = 4
 RETRIES = 2
 DELAY = 1
 
@@ -136,7 +138,7 @@ def run_download(session, map_id, dest, slot_idx, current_idx, total):
         f"https://api.nerinyan.moe/d/{map_id}",
         f"https://txy1.sayobot.cn/beatmaps/download/full/{map_id}",
     ]
-    
+
     part_file = dest + ".part"
     fail_msg = "Error"
     headers = {
@@ -153,7 +155,7 @@ def run_download(session, map_id, dest, slot_idx, current_idx, total):
             try:
                 response = session.get(link, headers=headers, timeout=7, stream=True)
                 response.raise_for_status()
-                
+
                 size = response.headers.get('content-length')
                 size = int(size) if size else None
                 got = 0
@@ -164,7 +166,7 @@ def run_download(session, map_id, dest, slot_idx, current_idx, total):
                         while paused and not stop_flag:
                             time.sleep(0.2)
                             t0 = time.time() - (got / (rate if 'rate' in locals() and rate > 0 else 1))
-                        
+
                         if stop_flag:
                             f.close()
                             if os.path.exists(part_file): os.remove(part_file)
@@ -174,13 +176,13 @@ def run_download(session, map_id, dest, slot_idx, current_idx, total):
                         if chunk:
                             f.write(chunk)
                             got += len(chunk)
-                        
+
                         dt = time.time() - t0
                         if dt > 0:
                             rate = got / dt
                             mb_s = rate / 1048576
                             mb_got = got / 1048576
-                            
+
                             if size:
                                 mb_total = size / 1048576
                                 mb_remaining = mb_total - mb_got
@@ -195,7 +197,7 @@ def run_download(session, map_id, dest, slot_idx, current_idx, total):
                     fail_msg = "Empty File"
                     if os.path.exists(part_file): os.remove(part_file)
                     if response: response.close()
-                    break 
+                    break
 
                 if os.path.exists(dest): os.remove(dest)
                 os.replace(part_file, dest)
@@ -204,7 +206,7 @@ def run_download(session, map_id, dest, slot_idx, current_idx, total):
 
             except requests.exceptions.HTTPError as e:
                 fail_msg = f"HTTP {response.status_code}" if response else "HTTP Error"
-                if response and response.status_code == 404: 
+                if response and response.status_code == 404:
                     response.close()
                     break
             except Exception as e:
@@ -213,7 +215,7 @@ def run_download(session, map_id, dest, slot_idx, current_idx, total):
                     fail_msg = "Timeout"
                 elif "connection" in fail_msg.lower():
                     fail_msg = "ConnError"
-                
+
                 if os.path.exists(part_file):
                     try: os.remove(part_file)
                     except: pass
@@ -242,7 +244,7 @@ def ui_loop(total):
 
             frame = []
             frame.append(draw_header())
-            
+
             if paused:
                 frame.append(f"{THEME['info']}==== DOWNLOADS PAUSED. PRESS 'P' TO RESUME ===={THEME['reset']}\n")
             else:
@@ -253,13 +255,13 @@ def ui_loop(total):
                 for row in logs[-8:]:
                     frame.append(row)
             frame.append("-----------\n")
-            
+
             frame.append("--- Channels ---")
             with state_lock:
                 for i in range(CONCURRENT_LIMIT):
                     frame.append(slot_view[i])
             frame.append("----------------")
-            
+
             frame.append(f"\n[Progress: {done_count}/{total}]")
 
             out_str = "\033[H" + "\n".join(f"\033[K{line}" for line in frame)
@@ -272,7 +274,7 @@ def ui_loop(total):
 
 def main():
     global done_count, stop_flag
-    
+
     if not os.path.exists(FILE_PATH):
         sys.stdout.write("\033[2J\033[H")
         print(draw_header())
@@ -284,7 +286,7 @@ def main():
 
     with open(FILE_PATH, "r", encoding="utf-8") as f:
         lines = [line.strip() for line in f if line.strip()]
-    
+
     seen = set()
     cleaned_urls = []
     for u in lines:
@@ -306,7 +308,7 @@ def main():
             logs.append(f"{THEME['invalid']} {u}")
 
     total_jobs = len(job_list) + done_count
-    
+
     if len(job_list) == 0:
         sys.stdout.write("\033[2J\033[H")
         print(draw_header())
@@ -317,7 +319,7 @@ def main():
 
     threading.Thread(target=input_listener, daemon=True).start()
     threading.Thread(target=ui_loop, args=(total_jobs,), daemon=True).start()
-    
+
     session = requests.Session()
     adapter = requests.adapters.HTTPAdapter(pool_connections=CONCURRENT_LIMIT, pool_maxsize=CONCURRENT_LIMIT)
     session.mount('http://', adapter)
@@ -354,11 +356,11 @@ def main():
                     except: pass
 
             if stop_flag: break
-            
+
             free_slot = pool_slots.pop(0)
             with state_lock:
                 slot_view[free_slot] = f"Slot {free_slot+1} -> [{idx}/{total_jobs}] Connecting {mid}..."
-            
+
             future = pool.submit(run_download, session, mid, path, free_slot, idx, total_jobs)
             running_tasks[future] = free_slot
 
