@@ -54,7 +54,7 @@ Once completed, all your downloaded maps will be stored inside a folder named `d
 
 ---
 
-## 🌐 Credits & API Declarations
+## 🌐 Credits
 
 This script does not scrape the official osu! website. Instead, it utilizes infrastructure fully maintained by the osu! community:
 
