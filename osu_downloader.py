@@ -59,7 +59,7 @@ done_count = 0
 
 state_lock = threading.Lock()
 logs = []
-slot_view = {i: "Idle..." for i in range(CONCURRENT_LIMIT)}
+slot_view = {}
 
 
 def draw_header():
@@ -258,7 +258,7 @@ def run_download(session, map_id, dest, slot_idx, current_idx, total):
     return False, fail_msg
 
 
-def ui_loop(total):
+def ui_loop(total, limit):
     global stop_flag, done_count, paused, force_refresh
     
     sys.stdout.write("\033[2J\033[H")
@@ -287,8 +287,8 @@ def ui_loop(total):
             
             frame.append("--- Channels ---")
             with state_lock:
-                for i in range(CONCURRENT_LIMIT):
-                    frame.append(slot_view[i])
+                for i in range(limit):
+                    frame.append(slot_view.get(i, "Idle..."))
             frame.append("----------------")
             
             frame.append(f"\n[Progress: {done_count}/{total}]")
@@ -302,7 +302,7 @@ def ui_loop(total):
 
 
 def main():
-    global done_count, stop_flag
+    global done_count, stop_flag, slot_view, CONCURRENT_LIMIT
     
     if not os.path.exists(FILE_PATH):
         sys.stdout.write("\033[2J\033[H")
@@ -311,6 +311,21 @@ def main():
         input("Press Enter to close...")
         return
 
+    sys.stdout.write("\033[2J\033[H")
+    print(draw_header())
+    
+    while True:
+        choice = input("Do you want a single or parallel download? (s/p): ").strip().lower()
+        if choice == 's':
+            CONCURRENT_LIMIT = 1
+            break
+        elif choice == 'p':
+            CONCURRENT_LIMIT = 4
+            break
+        else:
+            print("Invalid choice. Please enter 's' for single or 'p' for parallel.\n")
+
+    slot_view = {i: "Idle..." for i in range(CONCURRENT_LIMIT)}
     os.makedirs(SAVE_DIR, exist_ok=True)
 
     with open(FILE_PATH, "r", encoding="utf-8") as f:
@@ -348,7 +363,7 @@ def main():
         return
 
     threading.Thread(target=input_listener, daemon=True).start()
-    threading.Thread(target=ui_loop, args=(total_jobs,), daemon=True).start()
+    threading.Thread(target=ui_loop, args=(total_jobs, CONCURRENT_LIMIT), daemon=True).start()
     
     session = requests.Session()
     adapter = requests.adapters.HTTPAdapter(pool_connections=CONCURRENT_LIMIT, pool_maxsize=CONCURRENT_LIMIT)
