@@ -3,8 +3,23 @@ import re
 import time
 import sys
 import threading
-import urllib.request
-import urllib.error
+import subprocess
+
+try:
+    import requests
+except ModuleNotFoundError:
+    print("Required library 'requests' is missing. Installing it now...")
+    try:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "requests"])
+        import requests
+        print("Installation successful! Starting script...\n")
+        time.sleep(1)
+    except Exception as e:
+        print(f"Failed to install 'requests' automatically: {e}")
+        print("Please install it manually using: pip install requests")
+        input("\nPress Enter to exit...")
+        sys.exit(1)
+
 from concurrent.futures import ThreadPoolExecutor
 
 THEME = {
@@ -21,7 +36,7 @@ THEME = {
 
 if os.name == 'nt':
     import msvcrt
-    os.system('')
+    os.system('')  
 else:
     import tty
     import termios
@@ -31,12 +46,13 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 FILE_PATH = os.path.join(BASE_DIR, "links.txt")
 SAVE_DIR = os.path.join(BASE_DIR, "downloaded_maps")
 
-CONCURRENT_LIMIT = 4
+CONCURRENT_LIMIT = 4  
 RETRIES = 2
 DELAY = 1
 
 paused = False
 stop_flag = False
+force_refresh = False
 done_count = 0
 state_lock = threading.Lock()
 
@@ -48,9 +64,9 @@ def draw_header():
     line = "=" * 55
     out = [
         f"{THEME['menu']}{line}",
-        f"            osu! Downloader      ",
+        f"                   osu! Downloader",
         f"{line}",
-        f"  [P] Pause/Resume | [Q] Quit Script",
+        f"  [P] Pause/Resume | [R] Refresh UI | [Q] Quit Script",
         f"{line}{THEME['reset']}"
     ]
     return "\n".join(out) + "\n"
@@ -91,11 +107,14 @@ def read_key():
 
 
 def input_listener():
-    global paused, stop_flag
+    global paused, stop_flag, force_refresh
     while not stop_flag:
         key = read_key()
         if key == 'p':
             paused = not paused
+            clear_keys()
+        elif key == 'r':
+            force_refresh = True
             clear_keys()
         elif key == 'q':
             stop_flag = True
@@ -108,7 +127,7 @@ def parse_id(link):
     return m.group(1) or m.group(2)
 
 
-def run_download(client, map_id, dest, slot_idx, current_idx, total):
+def run_download(session, map_id, dest, slot_idx, current_idx, total):
     global paused, stop_flag
     if stop_flag: return False, "Interrupted"
     if os.path.exists(dest): return True, "CACHED"
@@ -117,73 +136,89 @@ def run_download(client, map_id, dest, slot_idx, current_idx, total):
         f"https://api.nerinyan.moe/d/{map_id}",
         f"https://txy1.sayobot.cn/beatmaps/download/full/{map_id}",
     ]
-
+    
     part_file = dest + ".part"
     fail_msg = "Error"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
+        "Accept-Encoding": "identity",
+        "Connection": "keep-alive"
+    }
 
     for link in endpoints:
         if stop_flag: break
         for run in range(1, RETRIES + 1):
             if stop_flag: break
+            response = None
             try:
-                request = urllib.request.Request(link)
-                request.add_header("User-Agent", "Mozilla/5.0")
-                request.add_header("Connection", "keep-alive")
+                response = session.get(link, headers=headers, timeout=7, stream=True)
+                response.raise_for_status()
+                
+                size = response.headers.get('content-length')
+                size = int(size) if size else None
+                got = 0
+                t0 = time.time()
 
-                with client.open(request, timeout=12) as response:
-                    size = response.getheader('Content-Length')
-                    size = int(size) if size else None
-                    got = 0
-                    t0 = time.time()
+                with open(part_file, "wb") as f:
+                    for chunk in response.iter_content(chunk_size=262144):
+                        while paused and not stop_flag:
+                            time.sleep(0.2)
+                            t0 = time.time() - (got / (rate if 'rate' in locals() and rate > 0 else 1))
+                        
+                        if stop_flag:
+                            f.close()
+                            if os.path.exists(part_file): os.remove(part_file)
+                            if response: response.close()
+                            return False, "Interrupted"
 
-                    with open(part_file, "wb") as f:
-                        while True:
-                            while paused and not stop_flag:
-                                time.sleep(0.2)
-                                t0 = time.time() - (got / (rate if 'rate' in locals() and rate > 0 else 1))
-
-                            if stop_flag:
-                                f.close()
-                                if os.path.exists(part_file): os.remove(part_file)
-                                return False, "Interrupted"
-
-                            chunk = response.read(65536)
-                            if not chunk: break
+                        if chunk:
                             f.write(chunk)
                             got += len(chunk)
-
-                            dt = time.time() - t0
-                            if dt > 0:
-                                rate = got / dt
-                                mb_s = rate / 1048576
-                                mb_got = got / 1048576
-
-                                if size:
-                                    mb_total = size / 1048576
-                                    mb_remaining = mb_total - mb_got
-                                    pct = (got / size) * 100
-                                    with state_lock:
-                                        slot_view[slot_idx] = f"Slot {slot_idx+1} -> [{current_idx}/{total}] Map {map_id}: {pct:5.1f}% ({mb_got:.1f}/{mb_total:.1f} MB, Rem: {mb_remaining:.1f} MB) @ {mb_s:5.2f} MB/s"
-                                else:
-                                    with state_lock:
-                                        slot_view[slot_idx] = f"Slot {slot_idx+1} -> [{current_idx}/{total}] Map {map_id}: {mb_got:.1f} MB Loaded @ {mb_s:5.2f} MB/s"
+                        
+                        dt = time.time() - t0
+                        if dt > 0:
+                            rate = got / dt
+                            mb_s = rate / 1048576
+                            mb_got = got / 1048576
+                            
+                            if size:
+                                mb_total = size / 1048576
+                                mb_remaining = mb_total - mb_got
+                                pct = (got / size) * 100
+                                with state_lock:
+                                    slot_view[slot_idx] = f"Slot {slot_idx+1} -> [{current_idx}/{total}] Map {map_id}: {pct:5.1f}% ({mb_got:.1f}/{mb_total:.1f} MB, Rem: {mb_remaining:.1f} MB) @ {mb_s:5.2f} MB/s"
+                            else:
+                                with state_lock:
+                                    slot_view[slot_idx] = f"Slot {slot_idx+1} -> [{current_idx}/{total}] Map {map_id}: {mb_got:.1f} MB Loaded @ {mb_s:5.2f} MB/s"
 
                 if os.path.exists(part_file) and os.path.getsize(part_file) < 2048:
                     fail_msg = "Empty File"
                     if os.path.exists(part_file): os.remove(part_file)
-                    break
+                    if response: response.close()
+                    break 
 
                 if os.path.exists(dest): os.remove(dest)
                 os.replace(part_file, dest)
+                if response: response.close()
                 return True, "OK"
 
-            except urllib.error.HTTPError as e:
-                fail_msg = f"HTTP {e.code}"
-                if e.code == 404: break
+            except requests.exceptions.HTTPError as e:
+                fail_msg = f"HTTP {response.status_code}" if response else "HTTP Error"
+                if response and response.status_code == 404: 
+                    response.close()
+                    break
             except Exception as e:
                 fail_msg = type(e).__name__
+                if "timeout" in fail_msg.lower() or "timeouterror" in fail_msg.lower():
+                    fail_msg = "Timeout"
+                elif "connection" in fail_msg.lower():
+                    fail_msg = "ConnError"
+                
                 if os.path.exists(part_file):
                     try: os.remove(part_file)
+                    except: pass
+                if response:
+                    try: response.close()
                     except: pass
                 if run < RETRIES and not stop_flag:
                     time.sleep(DELAY)
@@ -194,42 +229,50 @@ def run_download(client, map_id, dest, slot_idx, current_idx, total):
 
 
 def ui_loop(total):
-    global stop_flag, done_count, paused
+    global stop_flag, done_count, paused, force_refresh
     sys.stdout.write("\033[2J\033[H")
     sys.stdout.flush()
 
     while not stop_flag:
-        frame = []
-        frame.append(draw_header())
+        try:
+            if force_refresh:
+                sys.stdout.write("\033[2J\033[H")
+                sys.stdout.flush()
+                force_refresh = False
 
-        if paused:
-            frame.append(f"{THEME['info']}==== DOWNLOADS PAUSED. PRESS 'P' TO RESUME ===={THEME['reset']}\n")
-        else:
-            frame.append("Status: Running...\n")
+            frame = []
+            frame.append(draw_header())
+            
+            if paused:
+                frame.append(f"{THEME['info']}==== DOWNLOADS PAUSED. PRESS 'P' TO RESUME ===={THEME['reset']}\n")
+            else:
+                frame.append("Status: Running...\n")
 
-        frame.append("--- Log ---")
-        with state_lock:
-            for row in logs[-8:]:
-                frame.append(row)
-        frame.append("-----------\n")
+            frame.append("--- Log ---")
+            with state_lock:
+                for row in logs[-8:]:
+                    frame.append(row)
+            frame.append("-----------\n")
+            
+            frame.append("--- Channels ---")
+            with state_lock:
+                for i in range(CONCURRENT_LIMIT):
+                    frame.append(slot_view[i])
+            frame.append("----------------")
+            
+            frame.append(f"\n[Progress: {done_count}/{total}]")
 
-        frame.append("--- Channels ---")
-        with state_lock:
-            for i in range(CONCURRENT_LIMIT):
-                frame.append(slot_view[i])
-        frame.append("----------------")
-
-        frame.append(f"\n[Progress: {done_count}/{total}]")
-
-        out_str = "\033[H" + "\n".join(f"\033[K{line}" for line in frame)
-        sys.stdout.write(out_str)
-        sys.stdout.flush()
+            out_str = "\033[H" + "\n".join(f"\033[K{line}" for line in frame)
+            sys.stdout.write(out_str)
+            sys.stdout.flush()
+        except:
+            pass
         time.sleep(0.25)
 
 
 def main():
     global done_count, stop_flag
-
+    
     if not os.path.exists(FILE_PATH):
         sys.stdout.write("\033[2J\033[H")
         print(draw_header())
@@ -241,7 +284,7 @@ def main():
 
     with open(FILE_PATH, "r", encoding="utf-8") as f:
         lines = [line.strip() for line in f if line.strip()]
-
+    
     seen = set()
     cleaned_urls = []
     for u in lines:
@@ -263,7 +306,7 @@ def main():
             logs.append(f"{THEME['invalid']} {u}")
 
     total_jobs = len(job_list) + done_count
-
+    
     if len(job_list) == 0:
         sys.stdout.write("\033[2J\033[H")
         print(draw_header())
@@ -274,8 +317,12 @@ def main():
 
     threading.Thread(target=input_listener, daemon=True).start()
     threading.Thread(target=ui_loop, args=(total_jobs,), daemon=True).start()
+    
+    session = requests.Session()
+    adapter = requests.adapters.HTTPAdapter(pool_connections=CONCURRENT_LIMIT, pool_maxsize=CONCURRENT_LIMIT)
+    session.mount('http://', adapter)
+    session.mount('https://', adapter)
 
-    http_handler = urllib.request.build_opener(urllib.request.HTTPCookieProcessor())
     pool_slots = list(range(CONCURRENT_LIMIT))
     running_tasks = {}
 
@@ -307,12 +354,12 @@ def main():
                     except: pass
 
             if stop_flag: break
-
+            
             free_slot = pool_slots.pop(0)
             with state_lock:
                 slot_view[free_slot] = f"Slot {free_slot+1} -> [{idx}/{total_jobs}] Connecting {mid}..."
-
-            future = pool.submit(run_download, http_handler, mid, path, free_slot, idx, total_jobs)
+            
+            future = pool.submit(run_download, session, mid, path, free_slot, idx, total_jobs)
             running_tasks[future] = free_slot
 
         while running_tasks:
@@ -339,6 +386,7 @@ def main():
             time.sleep(0.04)
 
     stop_flag = True
+    session.close()
     time.sleep(0.2)
     sys.stdout.write("\033[2J\033[H")
     print(draw_header())
