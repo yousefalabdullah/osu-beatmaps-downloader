@@ -19,7 +19,7 @@ A lightweight Python tool designed to batch download **osu! beatmapsets** (multi
 
 If you are on Windows, the tool needs no additional packages or anything to run.
 
-but if you aren't on windows or you wanted for some reason to use the tool using the python file, the tool runs on **Python 3**, so naturally you need to install [Python 3](https://www.python.org/downloads/) for your operating system.
+But if you are not on windows or you wanted for some reason to use the tool using the python file, the tool runs on **Python 3**, so naturally you need to install [Python 3](https://www.python.org/downloads/) for your operating system.
 
 ## How to Use
 
