@@ -1,6 +1,6 @@
 # A Simple osu! Beatmaps Downloader Tool
 
-A lightweight Python script designed to batch download **osu! beatmapsets** (multiple downloads at once easily) via community-maintained mirrors. It requires no official API keys, tokens, or credentials.
+A lightweight Python tool designed to batch download **osu! beatmapsets** (multiple downloads at once easily) via community-maintained mirrors. It requires no official API keys, tokens, or credentials.
 
 ---
 
@@ -17,12 +17,12 @@ A lightweight Python script designed to batch download **osu! beatmapsets** (mul
 
 ## Requirements
 
-The script runs on **Python 3**, so naturally you first need to install [Python 3](https://www.python.org/downloads/) for your operating system.
+The tool runs on **Python 3**, so naturally you first need to install [Python 3](https://www.python.org/downloads/) for your operating system.
 
 ## How to Use
 
 ### 1. Prepare Your beatmaps list
-Place your osu! beatmap links inside a file called `links.txt` inside the same directory as the script, keeping **one beatmap link per line**. 
+Place your osu! beatmap links inside a file called `links.txt` inside the same directory as the tool, keeping **one beatmap link per line**. 
 
 *(Note: The default file contains 5 example maps so you can see how it works. You can delete those links and paste your own).*
 
@@ -38,7 +38,7 @@ https://osu.ppy.sh/s/934974
 ### 2. Run the Tool 
 If you are on windows you can just double click it after you put your beatmaps list. if you are not on windows tho or it didn't work, you can use the alternative method:
 
-Open your terminal or Command Prompt in the script's directory and execute:
+Open your terminal or Command Prompt in the tool's directory and execute:
 ```bash
 python osu_downloader.py
 ```
@@ -65,14 +65,14 @@ py -m pip install requests
 ```
   or if you are on a linux distro , you can check if your package manager offers a package of the dependency.
 * If you are experiencing slower internet speeds than expected using the tool, you might try to use a vpn or [Cloudflare Warp](https://one.one.one.one/) because sometimes it helps or fixes the problem entirely, if it didn't, please keep in mind that those APIs are not official from osu! and that's the best that we can get for now.
-* Sometimes the the tool fails to download some maps randomly, API issues or just a random bug, you may want to re-run the script after it finishes downloading the list so it'll go through the failed ones and retry to download them.
+* Sometimes the the tool fails to download some maps randomly, API issues or just a random bug, you may want to re-run the tool after it finishes downloading the list so it'll go through the failed ones and retry to download them.
 * It is rare, but you might find a map that does not exist in both APIs so it'll give you an error of (Invalid URL) or (Timeout) for these maps, please download these maps from the official [osu!](https://osu.ppy.sh/beatmapsets) website.
 
 ---
 
 ## Credits
 
-This script does not scrape the official osu! website. Instead, it utilizes infrastructure fully maintained by the osu! community:
+This tool does not scrape the official osu! website. Instead, it utilizes infrastructure fully maintained by the osu! community:
 
 * **Primary Mirror API:** [Nerinyan](https://nerinyan.moe/) – Used for high-speed map distribution and discovery.
 * **Fallback Mirror API:** [Sayobot Support Team](https://sayobot.cn/) – Used as a reliable fallback network endpoint for older or archived mapsets if the primary API is unavailable.
