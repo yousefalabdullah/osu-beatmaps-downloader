@@ -1,6 +1,6 @@
 # A Simple osu! Beatmaps Downloader Tool
 
-A lightweight Python script designed to batch download **osu! beatmapsets** in bulk (multiple downloads at once easily) via community-maintained mirrors. It requires no official API keys, tokens, or credentials.
+A lightweight Python script designed to batch download **osu! beatmapsets** (multiple downloads at once easily) via community-maintained mirrors. It requires no official API keys, tokens, or credentials.
 
 ---
 
