@@ -55,11 +55,11 @@ Once completed, all your downloaded maps will be stored inside a folder named `d
 *(Alternatively, you can open them together, run them one by one, or move them directly into your game's `Songs` or beatmaps directory, just import them in your preferred way!).*
 
 ## Troubleshooting
-* If the tool for whatever reason failed to install the `requests` library, you can install it manually using the following command
+* If the tool for whatever reason failed to install the `requests` library, you can install it manually using the following command in a terminal or powershell:
 ```cmd
 pip install requests
 ```
-  or
+  or:
 ```cmd
 py -m pip install requests
 ```
