@@ -28,7 +28,11 @@ CONCURRENT_LIMIT = 4
 RETRIES = 2
 DELAY = 1
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+if getattr(sys, 'frozen', False):
+    BASE_DIR = os.path.dirname(sys.executable)
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 FILE_PATH = os.path.join(BASE_DIR, "links.txt")
 SAVE_DIR = os.path.join(BASE_DIR, "downloaded_maps")
 
@@ -452,3 +456,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    
