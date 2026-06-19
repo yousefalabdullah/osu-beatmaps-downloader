@@ -58,11 +58,11 @@ Once completed, all your downloaded maps will be stored inside a folder named `d
 ```cmd
 pip install requests
 ```
-or
+  or
 ```cmd
 py -m pip install requests
 ```
-or if you are on a linux distro , you can check if your package manager offers a package of the dependency.
+  or if you are on a linux distro , you can check if your package manager offers a package of the dependency.
 * If you're experiencing slow speeds in the tool, you might try to use a vpn or [Cloudflare Warp](https://one.one.one.one/) because sometimes it helps or fixes the problem entirely.
 * Sometimes the the tool fails to download some maps randomly, API issues or just a random bug, you may want to re-run the script after it finishes downloading the list so it'll go through the failed ones and retry to download them.
 
