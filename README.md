@@ -43,7 +43,7 @@ python osu_downloader.py
 ```
 Alternatively, if you cannot open the terminal directly inside that directory, use the full directory:
 ```cmd
-python "C:/path-to-your-directory/osu_downloader.py"
+python "C:\path-to-your-file's-directory\osu_downloader.py"
 ```
 
 ### 3. Import to osu!
