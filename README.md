@@ -37,6 +37,7 @@ https://osu.ppy.sh/s/934974
 
 ### 2. Run the Script
 If you are on windows you can just double click it after you put your beatmaps list. if you are not on windows tho or it didn't work, you can use the alternative method:
+
 Open your terminal or Command Prompt in the script's directory and execute:
 ```bash
 python osu_downloader.py
