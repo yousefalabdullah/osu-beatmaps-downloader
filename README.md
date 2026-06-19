@@ -17,7 +17,9 @@ A lightweight Python tool designed to batch download **osu! beatmapsets** (multi
 
 ## Requirements
 
-The tool runs on **Python 3**, so naturally you first need to install [Python 3](https://www.python.org/downloads/) for your operating system.
+If you are on Windows, the tool needs no additional packages or anything to run.
+
+but if you aren't on windows or you wanted for some reason to use the tool using the python file, the tool runs on **Python 3**, so naturally you need to install [Python 3](https://www.python.org/downloads/) for your operating system.
 
 ## How to Use
 
@@ -36,7 +38,9 @@ https://osu.ppy.sh/s/934974
 *Tip: You can mix multiple formats, but using the second format (`https://osu.ppy.sh/beatmapsets/2341595`) for all of the beatmaps is highly recommended to avoid any formatting issues.*
 
 ### 2. Run the Tool 
-If you are on windows you can just double click it after you put your beatmaps list. if you are not on windows tho or it didn't work, you can use the alternative method:
+* If you are on windows you can just double click it after you put your beatmaps list. 
+
+* If you are using the python file, you can use this method:
 
 Open your terminal or Command Prompt in the tool's directory and execute:
 ```bash
@@ -55,7 +59,7 @@ Once completed, all your downloaded maps will be stored inside a folder named `d
 *(Alternatively, you can open them together, run them one by one, or move them directly into your game's `Songs` or beatmaps directory, just import them in your preferred way!).*
 
 ## Troubleshooting
-* If the tool for whatever reason failed to install the `requests` library, you can install it manually using the following command in a terminal or powershell:
+* (Exclusively for the python file) If the tool for whatever reason failed to install the `requests` library, you can install it manually using the following command in a terminal or powershell:
 ```cmd
 pip install requests
 ```
