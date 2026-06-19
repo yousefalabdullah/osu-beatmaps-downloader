@@ -1,6 +1,6 @@
-# A Simple osu! Bulk Downloader Tool
+# A Simple osu! Beatmaps Downloader Tool
 
-A lightweight Python script designed to batch download **osu! beatmapsets** in bulk via community-maintained mirrors. It requires no official API keys, tokens, or credentials.
+A lightweight Python script designed to batch download **osu! beatmapsets** in bulk (multiple downloads at once easily) via community-maintained mirrors. It requires no official API keys, tokens, or credentials.
 
 ---
 
@@ -35,7 +35,7 @@ https://osu.ppy.sh/s/934974
 ```
 *Tip: You can mix multiple formats, but using the second format (`https://osu.ppy.sh/beatmapsets/2341595`) for all of the beatmaps is highly recommended to avoid any formatting issues.*
 
-### 2. Run the Script
+### 2. Run the Tool 
 If you are on windows you can just double click it after you put your beatmaps list. if you are not on windows tho or it didn't work, you can use the alternative method:
 
 Open your terminal or Command Prompt in the script's directory and execute:
@@ -54,7 +54,7 @@ Once completed, all your downloaded maps will be stored inside a folder named `d
 * **Drag-and-drop** them directly into the game window to extract them all at once.
 *(Alternatively, you can open them together, run them one by one, or move them directly into your game's `Songs` or beatmaps directory, just import them in your preferred way!).*
 
-## Troubleshoot
+## Troubleshooting
 * If the tool for whatever reason failed to install the `requests` library, you can install it manually using the following command
 ```cmd
 pip install requests
@@ -64,8 +64,9 @@ pip install requests
 py -m pip install requests
 ```
   or if you are on a linux distro , you can check if your package manager offers a package of the dependency.
-* If you're experiencing slow speeds in the tool, you might try to use a vpn or [Cloudflare Warp](https://one.one.one.one/) because sometimes it helps or fixes the problem entirely.
+* If you are experiencing slower internet speeds than expected using the tool, you might try to use a vpn or [Cloudflare Warp](https://one.one.one.one/) because sometimes it helps or fixes the problem entirely, if it didn't, please keep in mind that those APIs are not official from osu! and that's the best that we can get for now.
 * Sometimes the the tool fails to download some maps randomly, API issues or just a random bug, you may want to re-run the script after it finishes downloading the list so it'll go through the failed ones and retry to download them.
+* It is rare, but you might find a map that does not exist in both APIs so it'll give you an error of (Invalid URL) or (Timeout) for these maps, please download these maps from the official [osu!](https://osu.ppy.sh/beatmapsets) website.
 
 ---
 
@@ -78,4 +79,4 @@ This script does not scrape the official osu! website. Instead, it utilizes infr
 
 > **Disclaimer:** This tool is an unofficial community asset. All beatmap assets, audio tracks, and backgrounds belong to their respective creators and copyright holders. This project is not affiliated with, associated with, or endorsed by the official osu! team.
 
-* This utility was built, refactored, and optimized using AI (vibe coded) by **Yousef Al-Abdullah**.  
+* This utility was vibecoded by **Yousef Al-Abdullah**.  
